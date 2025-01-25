@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jooksuteekonna kaart</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.5.1/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.5.1/leaflet.css" />
+    <style>
+        body { padding: 0; margin: 0; font-family: Arial, sans-serif; }
+        html, body { height: 100%; width: 100%; }
+        #kaardikiht { width: 800px; height: 600px; }
+        #info, #koikTeekonnad { padding: 10px; }
+        .button { 
+            padding: 5px 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .controls {
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            margin: 10px;
+        }
+        .speed-option {
+            margin: 5px;
+        }
+    </style>
+    <script>
+        let kaart;
+        let markerid = [];
+        let jooned = [];
+        let praeguneTeekond = [];
+        let koikTeekonnad = [];
+
+        function algus() {
+            kaart = L.map('kaardikiht').setView([59.439559498798225, 24.77173961903833], 16);
+            new L.TileLayer('https://tiles.maaamet.ee/tm/tms/1.0.0/hybriid@GMC/{z}/{x}/{y}.png&ASUTUS=TLU&ERIALA=DIGIHUMANITAARIA', {
+                attribution: "Kaart: <a href='http://www.maaamet.ee/'>Maa-amet</a>",
+                tms: true,
+            }).addTo(kaart);
+
+            kaart.on("click", lisaPunkt);
+        }
+
+        function formatKaugus(meetrid) {
+            return meetrid >= 1000 ? 
+                (meetrid / 1000).toFixed(2) + " km" : 
+                Math.round(meetrid) + " m";
+        }
+
+        function arvutaKoguKaugus(punktid) {
+            let kogukaugus = 0;
+            for (let i = 1; i < punktid.length; i++) {
+                kogukaugus += punktid[i-1].getLatLng().distanceTo(punktid[i].getLatLng());
+            }
+            return kogukaugus;
+        }
+
+        function arvutaAeg(kaugus, kiirus) {
+            return (kaugus / kiirus) / 60; // minutites
+        }
+
+        function lisaPunkt(e) {
+            const marker = L.marker(e.latlng);
+            marker.addTo(kaart);
+            markerid.push(marker);
+            praeguneTeekond.push(marker);
+
+            if (praeguneTeekond.length > 1) {
+                const joon = L.polyline([
+                    praeguneTeekond[praeguneTeekond.length-2].getLatLng(),
+                    praeguneTeekond[praeguneTeekond.length-1].getLatLng()
+                ], {color: 'blue'}).addTo(kaart);
+                jooned.push(joon);
+
+                const kogukaugus = arvutaKoguKaugus(praeguneTeekond);
+                const keskminePikkus = formatKaugus(kogukaugus);
+
+                document.getElementById('info').innerHTML = 
+                    `Teekonna pikkus: ${keskminePikkus}<br>`;
+            }
+        }
+
+        function lopetaTeekond() {
+            if (praeguneTeekond.length > 1) {
+                koikTeekonnad.push([...praeguneTeekond]);
+                praeguneTeekond = [];
+                uuendaTeekondadeInfo();
+            }
+        }
+
+        function uuendaTeekondadeInfo() {
+            let info = "<h3>Kõik teekonnad:</h3>";
+            koikTeekonnad.forEach((teekond, index) => {
+                const kaugus = formatKaugus(arvutaKoguKaugus(teekond));
+                info += `Teekond ${index + 1}: ${kaugus}<br>`;
+            });
+            document.getElementById('koikTeekonnad').innerHTML = info;
+        }
+
+        function puhastaKaart() {
+            markerid.forEach(marker => kaart.removeLayer(marker));
+            jooned.forEach(joon => kaart.removeLayer(joon));
+            markerid = [];
+            jooned = [];
+            praeguneTeekond = [];
+            koikTeekonnad = [];
+            document.getElementById('info').innerHTML = '';
+            document.getElementById('koikTeekonnad').innerHTML = '';
+        }
+    </script>
+</head>
+<body onload="algus()">
+    <div id="kaardikiht"></div>
+    <div class="controls">
+        <button class="button" onclick="lopetaTeekond()">Lõpeta teekond</button>
+        <button class="button" onclick="puhastaKaart()">Puhasta kaart</button>
+    </div>
+    <div id="info"></div>
+    <div id="koikTeekonnad"></div>
+</body>
+</html>
